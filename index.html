@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ImageSqueeze — Compress to 50 KB</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3352;
+      --accent: #6c63ff;
+      --accent-light: #8b84ff;
+      --accent-dim: #6c63ff22;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e8eaf6;
+      --muted: #8892b0;
+      --radius: 14px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 18px;
+    }
+    .logo-text { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
+    .logo-text span { color: var(--accent-light); }
+    .tagline {
+      margin-left: auto;
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* ── MAIN ── */
+    main {
+      flex: 1;
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: -0.5px;
+    }
+    h1 span { color: var(--accent-light); }
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      margin-top: -18px;
+      font-size: 0.95rem;
+    }
+
+    /* ── TARGET SIZE ── */
+    .target-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 20px;
+      width: 100%;
+      max-width: 540px;
+    }
+    .target-row label { color: var(--muted); font-size: 0.88rem; white-space: nowrap; }
+    .target-row input[type="number"] {
+      width: 80px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      text-align: center;
+      outline: none;
+    }
+    .target-row input[type="number"]:focus { border-color: var(--accent); }
+    .target-row .kb-label { color: var(--muted); font-size: 0.88rem; }
+    .target-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ── DROP ZONE ── */
+    #drop-zone {
+      width: 100%;
+      max-width: 540px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 48px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    #drop-zone .drop-icon { font-size: 2.8rem; }
+    #drop-zone .drop-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    #drop-zone .drop-sub { color: var(--muted); font-size: 0.85rem; text-align: center; }
+    #drop-zone .browse-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #drop-zone .browse-btn:hover { background: var(--accent-light); }
+    #file-input { display: none; }
+
+    /* ── COMPRESS BTN ── */
+    #compress-btn {
+      display: none;
+      width: 100%;
+      max-width: 540px;
+      padding: 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #compress-btn:hover:not(:disabled) { background: var(--accent-light); transform: translateY(-1px); }
+    #compress-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ── RESULTS ── */
+    #result-section {
+      display: none;
+      width: 100%;
+      max-width: 540px;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .previews {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .preview-card img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+    }
+    .preview-card .card-label {
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .preview-card .card-size {
+      padding: 0 14px 12px;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .stat .val { font-size: 1.15rem; font-weight: 800; }
+    .stat .lbl { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .pill {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .pill.success { background: #22c55e22; color: var(--green); border: 1px solid #22c55e44; }
+    .pill.warn    { background: #f59e0b22; color: var(--yellow); border: 1px solid #f59e0b44; }
+
+    /* ── DOWNLOAD ── */
+    #download-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    #download-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* ── RESET ── */
+    #reset-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: var(--radius);
+      padding: 10px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      width: 100%;
+      max-width: 540px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #reset-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── LOADING ── */
+    #loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ERROR ── */
+    #error-box {
+      display: none;
+      background: #ef444418;
+      border: 1px solid #ef444444;
+      color: var(--red);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 18px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 1.5rem; }
+      .previews { grid-template-columns: 1fr; }
+      .stats-bar { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🗜️</div>
+  <span class="logo-text">Image<span>Squeeze</span></span>
+  <span class="tagline">Free · Fast · Private</span>
+</header>
+
+<main>
+  <h1>Compress images to <span>&le;50 KB</span></h1>
+  <p class="subtitle">Drag &amp; drop any photo. We'll crunch it down — right in your browser session.</p>
+
+  <!-- Target size control -->
+  <div class="target-row">
+    <label for="max-kb">Target size</label>
+    <input type="number" id="max-kb" min="1" max="500" value="50" />
+    <span class="kb-label">KB</span>
+    <input type="range" id="max-kb-range" min="1" max="500" value="50" step="1" />
+  </div>
+
+  <!-- Drop zone -->
+  <div id="drop-zone">
+    <div class="drop-icon">🖼️</div>
+    <div class="drop-title">Drop your image here</div>
+    <div class="drop-sub">JPEG, PNG, WebP, AVIF, TIFF — up to 20 MB</div>
+    <button class="browse-btn" type="button" onclick="document.getElementById('file-input').click()">Browse files</button>
+    <input type="file" id="file-input" accept="image/*" />
+  </div>
+
+  <!-- Compress button -->
+  <button id="compress-btn" type="button">⚡ Compress Now</button>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <span>Compressing…</span>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box"></div>
+
+  <!-- Results -->
+  <div id="result-section">
+    <div class="previews">
+      <div class="preview-card">
+        <img id="original-preview" src="" alt="Original" />
+        <div class="card-label">Original</div>
+        <div class="card-size" id="original-size">—</div>
+      </div>
+      <div class="preview-card">
+        <img id="compressed-preview" src="" alt="Compressed" />
+        <div class="card-label">Compressed</div>
+        <div class="card-size" id="compressed-size">—</div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="val" id="stat-original">—</span>
+        <span class="lbl">Original</span>
+      </div>
+      <div class="stat">
+        <span class="val" id="stat-compressed">—</span>
+        <span class="lbl">Compressed</span>
+      </div>
+      <div class="stat">
+        <span class="val" id="stat-savings">—</span>
+        <span class="lbl">Saved</span>
+      </div>
+      <span class="pill" id="stat-badge">—</span>
+    </div>
+
+    <a id="download-btn" href="#" download="compressed.webp">
+      ⬇️ Download WebP
+    </a>
+  </div>
+
+  <button id="reset-btn" style="display:none" type="button">↩ Compress another image</button>
+</main>
+
+<footer>Images are processed server-side and never stored. &copy; 2026 ImageSqueeze</footer>
+
+<script>
+  const dropZone     = document.getElementById('drop-zone');
+  const fileInput    = document.getElementById('file-input');
+  const maxKbInput   = document.getElementById('max-kb');
+  const maxKbRange   = document.getElementById('max-kb-range');
+  const compressBtn  = document.getElementById('compress-btn');
+  const loadingEl    = document.getElementById('loading');
+  const errorBox     = document.getElementById('error-box');
+  const resultSection= document.getElementById('result-section');
+  const resetBtn     = document.getElementById('reset-btn');
+  const downloadBtn  = document.getElementById('download-btn');
+
+  let selectedFile = null;
+
+  // ── Sync KB inputs ────────────────────────────────────────────
+  maxKbInput.addEventListener('input', () => {
+    let v = Math.max(1, Math.min(500, Number(maxKbInput.value) || 50));
+    maxKbRange.value = v;
+  });
+  maxKbRange.addEventListener('input', () => {
+    maxKbInput.value = maxKbRange.value;
+  });
+
+  // ── Drag & drop ───────────────────────────────────────────────
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file.');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      showError('File is too large. Maximum upload size is 20 MB.');
+      return;
+    }
+    selectedFile = file;
+    hideError();
+    hideResults();
+
+    // Show original preview
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('original-preview').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    compressBtn.style.display = 'block';
+    compressBtn.textContent = `⚡ Compress "${truncate(file.name, 28)}"`;
+  }
+
+  // ── Compress ──────────────────────────────────────────────────
+  compressBtn.addEventListener('click', compress);
+
+  async function compress() {
+    if (!selectedFile) return;
+
+    const targetKB = Math.max(1, Math.min(500, Number(maxKbInput.value) || 50));
+
+    compressBtn.disabled = true;
+    loadingEl.style.display = 'flex';
+    hideError();
+    hideResults();
+
+    try {
+      const form = new FormData();
+      form.append('image', selectedFile);
+      form.append('maxKB', String(targetKB));
+
+      const res = await fetch('/api/compress', { method: 'POST', body: form });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Server error ${res.status}`);
+      }
+
+      const originalSize   = Number(res.headers.get('X-Original-Size'));
+      const compressedSize = Number(res.headers.get('X-Compressed-Size'));
+      const underTarget    = res.headers.get('X-Compressed-Under-Target') === 'true';
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+
+      showResults({ originalSize, compressedSize, underTarget, url, targetKB });
+    } catch (err) {
+      showError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      compressBtn.disabled = false;
+      loadingEl.style.display = 'none';
+    }
+  }
+
+  // ── Show results ──────────────────────────────────────────────
+  function showResults({ originalSize, compressedSize, underTarget, url, targetKB }) {
+    document.getElementById('compressed-preview').src = url;
+    document.getElementById('original-size').textContent   = fmtBytes(originalSize);
+    document.getElementById('compressed-size').textContent = fmtBytes(compressedSize);
+
+    document.getElementById('stat-original').textContent   = fmtBytes(originalSize);
+    document.getElementById('stat-compressed').textContent = fmtBytes(compressedSize);
+
+    const savings = originalSize > 0
+      ? Math.round((1 - compressedSize / originalSize) * 100)
+      : 0;
+    document.getElementById('stat-savings').textContent = savings + '%';
+
+    const badge = document.getElementById('stat-badge');
+    if (underTarget) {
+      badge.textContent = `✓ Under ${targetKB} KB`;
+      badge.className = 'pill success';
+    } else {
+      badge.textContent = `⚠ Best effort (${fmtBytes(compressedSize)})`;
+      badge.className = 'pill warn';
+    }
+
+    downloadBtn.href = url;
+    downloadBtn.download = 'compressed.webp';
+
+    resultSection.style.display = 'flex';
+    compressBtn.style.display = 'none';
+    resetBtn.style.display = 'block';
+    resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────
+  resetBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('original-preview').src = '';
+    document.getElementById('compressed-preview').src = '';
+    hideResults();
+    hideError();
+    compressBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function hideResults() { resultSection.style.display = 'none'; }
+  function hideError()   { errorBox.style.display = 'none'; errorBox.textContent = ''; }
+  function showError(msg) {
+    errorBox.textContent = '⚠ ' + msg;
+    errorBox.style.display = 'block';
+    loadingEl.style.display = 'none';
+    compressBtn.disabled = false;
+  }
+
+  function fmtBytes(b) {
+    if (b === 0 || isNaN(b)) return '—';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  function truncate(s, max) {
+    return s.length <= max ? s : s.slice(0, max - 1) + '…';
+  }
+</script>
+</body>
+</html>
